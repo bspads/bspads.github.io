@@ -1,0 +1,113 @@
+site_name: Black Samurai · Геймпады
+site_description: Инструкции, подключение и решение проблем для геймпадов Black Samurai
+# Домен ещё не выбран (bsp / bspads). Когда будет — впишите его сюда
+# и в Settings → Pages → Custom domain репозитория.
+site_url: https://example.invalid/
+
+copyright: >
+  © Black Samurai — инструкции к геймпадам
+
+theme:
+  name: material
+  custom_dir: overrides
+  language: ru
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
+  font:
+    text: Barlow
+    code: JetBrains Mono
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Светлая тема
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Тёмная тема
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - navigation.instant
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.tooltips
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/hero-search.js
+  - javascripts/share.js
+  - javascripts/bookmark.js
+
+validation:
+  links:
+    anchors: warn
+
+hooks:
+  - hooks/models.py
+
+plugins:
+  - search:
+      lang: ru
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: "#"
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.keys
+
+extra:
+  generator: false
+  # TODO: контакты поддержки Black Samurai (Telegram, почта)
+
+nav:
+  - Главная: index.md
+  - Геймпады:
+      - models/index.md
+      - Black Samurai D3S: models/d3s.md
+      - Black Samurai D6DP: models/d6dp.md
+      - Black Samurai D8PRO: models/d8pro.md
+      - Black Samurai D9: models/d9.md
+      - Black Samurai D10 / D10s: models/d10.md
+      - Black Samurai D11: models/d11.md
+      - Black Samurai G6: models/g6.md
+      - Black Samurai G6S: models/g6s.md
+      - Black Samurai G6 PRO: models/g6pro.md
+      - Black Samurai G7: models/g7.md
+      - Black Samurai S07 / S08 / S09: models/s07.md
+      - Black Samurai S11: models/s11.md
+      - Black Samurai S12: models/s12.md
+      - Black Samurai Z01F: models/z01f.md
+      - Black Samurai Z01X: models/z01x.md
+      - Black Samurai Z03: models/z03.md
+      - Black Samurai Z03DP: models/z03dp.md
+      - GameSir X5 Lite: models/gamesir-x5-lite.md
+      - GameSir Nova Lite: models/gamesir-nova-lite.md
+  - Подключение: guides/index.md
+  - Поддержка: support.md
