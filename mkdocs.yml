@@ -50,6 +50,8 @@ extra_javascript:
   - javascripts/hero-search.js
   - javascripts/share.js
   - javascripts/bookmark.js
+  - javascripts/diagram.js
+  - javascripts/gp3d.js
 
 validation:
   links:

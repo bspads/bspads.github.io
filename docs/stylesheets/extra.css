@@ -556,6 +556,234 @@ body {
 .md-typeset .md-button--primary { background-color: var(--xp-accent-strong); border-color: var(--xp-accent-strong); color: #fff; }
 .md-typeset .admonition, .md-typeset details { box-shadow: none; border-width: 1px; border-radius: .4rem; background: var(--xp-card-bg); }
 
+/* ===== Интерактивная схема кнопок (gp-diagram) ===== */
+.gp-diagram {
+  position: relative;
+  max-width: 28rem;
+  margin: 1.2em auto 0;
+  background: var(--xp-img-bg);
+  border: 1px solid var(--xp-card-border);
+  border-radius: .6rem;
+  padding: .5rem;
+}
+.gp-diagram__img { display: block; width: 100%; height: auto; }
+.gp-diagram__dot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid var(--bp-paper, #fff);
+  background: var(--xp-accent-strong);
+  color: #fff;
+  font: 700 .7rem/1 var(--md-code-font-family), monospace;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
+}
+.gp-diagram__dot:hover,
+.gp-diagram__dot:focus-visible,
+.gp-diagram__dot.is-active {
+  background: var(--bp-ink, #1c1a1a);
+  outline: none;
+}
+.gp-diagram__dot::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: 135%;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: var(--bp-ink, #1c1a1a);
+  color: var(--bp-paper, #fff);
+  padding: .3em .6em;
+  border-radius: .3em;
+  font-size: .68rem;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s;
+  z-index: 2;
+}
+.gp-diagram__dot--below::after { bottom: auto; top: 135%; }
+.gp-diagram__dot:hover::after,
+.gp-diagram__dot:focus-visible::after,
+.gp-diagram__dot.is-active::after { opacity: 1; }
+
+/* ===== Встроенное самостоятельное 3D-приложение (iframe) ===== */
+.gp-app-embed {
+  margin: 1.2em 0 .6em;
+  border: 1px solid var(--xp-card-border);
+  border-radius: .6rem;
+  overflow: hidden;
+  background: #e8e8ea;
+  height: min(78vh, 760px);
+}
+.gp-app-embed iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+@media (max-width: 600px) {
+  .gp-app-embed { height: 70vh; }
+}
+
+/* ===== Интерактивная 3D-модель (gp-3d) ===== */
+.gp-3d {
+  margin: 1.2em 0 .8em;
+  border: 1px solid var(--xp-card-border);
+  border-radius: .6rem;
+  background: var(--xp-card-bg);
+  overflow: hidden;
+}
+.gp-3d__stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background:
+    radial-gradient(ellipse at 50% 35%, var(--xp-img-bg) 0%, var(--xp-card-bg) 72%);
+}
+.gp-3d__stage canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; }
+.gp-3d__overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.gp-3d__hint {
+  position: absolute;
+  left: 50%;
+  bottom: .6rem;
+  transform: translateX(-50%);
+  font-size: .65rem;
+  color: var(--md-default-fg-color--light);
+  background: var(--xp-card-bg);
+  padding: .2em .7em;
+  border-radius: 1em;
+  border: 1px solid var(--xp-card-border);
+  pointer-events: none;
+  white-space: nowrap;
+  transition: opacity .3s;
+  z-index: 3;
+}
+.gp-3d__hint.is-gone { opacity: 0; }
+
+.gp-3d__hotspot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid var(--bp-paper, #fff);
+  background: var(--xp-accent-strong);
+  color: #fff;
+  font: 700 .68rem/1 var(--md-code-font-family), monospace;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s;
+}
+.gp-3d__hotspot:hover,
+.gp-3d__hotspot:focus-visible { background: var(--bp-ink, #1c1a1a); outline: none; }
+.gp-3d__hotspot::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: 135%;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: var(--bp-ink, #1c1a1a);
+  color: var(--bp-paper, #fff);
+  padding: .3em .6em;
+  border-radius: .3em;
+  font-size: .68rem;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s;
+  z-index: 2;
+}
+.gp-3d__hotspot:hover::after,
+.gp-3d__hotspot:focus-visible::after { opacity: 1; }
+
+.gp-3d__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem .8rem;
+  padding: .7rem .9rem;
+  border-top: 1px solid var(--xp-card-border);
+}
+.gp-3d__group { display: flex; align-items: center; gap: .4rem; }
+.gp-3d__group-label {
+  font: 700 .62rem/1 var(--bp-cond, inherit);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--md-default-fg-color--light);
+  margin-right: .15rem;
+}
+.gp-3d__mode {
+  font-family: var(--md-code-font-family), monospace;
+  font-size: .72rem;
+  font-weight: 700;
+  padding: .35em .8em;
+  border-radius: .35rem;
+  border: 1px solid var(--xp-card-border);
+  background: transparent;
+  color: var(--md-default-fg-color);
+  cursor: pointer;
+}
+.gp-3d__mode:hover { border-color: var(--xp-accent); }
+.gp-3d__mode.is-active {
+  border-color: var(--xp-accent-strong);
+  background: var(--xp-accent-soft);
+  color: var(--xp-tag-fg);
+}
+
+.gp-3d__info {
+  margin: 0;
+  padding: .8rem .9rem 1rem;
+  border-top: 1px solid var(--xp-card-border);
+  font-size: .82rem;
+  color: var(--md-default-fg-color);
+}
+.gp-3d__info b { color: var(--xp-tag-fg); }
+.gp-3d__led {
+  display: inline-block;
+  width: .7em;
+  height: .7em;
+  border-radius: 50%;
+  margin-right: .4em;
+  vertical-align: middle;
+  box-shadow: 0 0 .4em currentColor;
+}
+
+@media (max-width: 40em) {
+  .gp-3d__bar { padding: .6rem .7rem; }
+  .gp-3d__mode { padding: .5em .8em; min-height: 2.1rem; }
+}
+
+.gp-diagram__legend {
+  max-width: 28rem;
+  margin: .9rem auto 2em;
+  padding-left: 1.4rem;
+  font-size: .82rem;
+  color: var(--md-default-fg-color--light);
+}
+.gp-diagram__legend li { margin: .25em 0; }
+.gp-diagram__legend li::marker { color: var(--xp-accent); font-weight: 700; }
+.gp-diagram__legend li.is-active { color: var(--md-default-fg-color); }
+.gp-diagram__legend b { color: var(--md-default-fg-color); }
+
 /* главная: бренд — киноварью, подпись мелкими заглавными */
 .xp-hero h1 { letter-spacing: .12em; }
 .xp-brand { color: var(--xp-accent); }
