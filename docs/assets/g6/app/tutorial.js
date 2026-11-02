@@ -291,6 +291,9 @@ const VIEW = {
   overview: [[0.0, 0.34, 0.5], [0.15, 0.085, -0.13]],
   // экран целиком, с запасом снизу под подпись шага (при 0.36 м она закрывала панель задач)
   screen: [[SCREEN_C.x, SCREEN_C.y + 0.0, SCREEN_C.z + 0.46], [SCREEN_C.x, SCREEN_C.y - 0.035, SCREEN_C.z]],
+  // крупнее, чем «screen»: окно «Параметры»/диалог «Добавить устройство» читается — текст на весь
+  // экран был слишком мелким даже на большом мониторе (отзыв владельца)
+  content: (() => { const p = onScreen(760, 300); return [p.clone().addScaledVector(nrm, 0.3).toArray(), p.toArray()]; })(),
   switch: [[0.03, -0.06, 0.12], [0, 0.027, 0.029]],      // снизу: переключатель режимов
   home: [[0.0, 0.14, 0.14], [0, 0.05, 0.0]],             // сверху: кнопка Home
 };
@@ -317,7 +320,7 @@ async function scenario(mode) {
   controls.enabled = false; flyTo(...VIEW.tray, 1200); await sleep(1300);
   step(0); await moveTo(TRAY.bt, H - TB.h / 2, 1100); S.hover = 'tray'; await sleep(250); await click(); S.menu = true; S.hover = null;
   step(1); const b = menuBox(); await moveTo(b.x + 150, b.y + 8 + MIH / 2, 800); S.hover = 'menu0'; await sleep(300); await click();
-  S.menu = false; S.hover = null; S.view = 'settings'; flyTo(...VIEW.screen, 900);
+  S.menu = false; S.hover = null; S.view = 'settings'; flyTo(...VIEW.content, 900);
   step(2); await sleep(700); await moveTo(ADD_BTN.x + ADD_BTN.w / 2, ADD_BTN.y + ADD_BTN.h / 2, 1000); S.hover = 'add'; await sleep(300); await click();
   S.hover = null; S.view = 'type';
   step(3); await sleep(500); await moveTo(OPT_BT.x + 160, OPT_BT.y + 38, 800); S.hover = 'bt'; await sleep(350); await click();
@@ -336,13 +339,13 @@ async function scenario(mode) {
   flyTo(...VIEW.overview, 1100); await sleep(900);
   S.found = true; S.foundAt = performance.now();
   step(6, ` («${dev}»)`); await sleep(1400);            // общий план: Home мигает, геймпад в списке
-  flyTo(...VIEW.screen, 1000); await sleep(1000);
+  flyTo(...VIEW.content, 1000); await sleep(1000);
   await moveTo(ROW_DEV.x + 200, ROW_DEV.y + 30, 900); S.hover = 'dev'; await sleep(300); await click();
   S.hover = null; S.view = 'connecting';
   step(7); await sleep(2000);
   S.view = 'done'; setStatus('Подключено'); G6.led('on');
   step(8); flyTo(...VIEW.overview, 1100); await sleep(2600);   // окно «готово» и горящий Home вместе
-  flyTo(...VIEW.screen, 900); await sleep(900);
+  flyTo(...VIEW.content, 900); await sleep(900);
   await moveTo(BTN.x + BTN.w / 2, BTN.y + BTN.h / 2, 800); S.hover = 'ok'; await sleep(250); await click();
   S.hover = null; S.view = 'settings'; await sleep(2500);
 }
