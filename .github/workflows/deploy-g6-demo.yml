@@ -1,0 +1,37 @@
+name: Публикация демо G6
+
+# Отдельный, узкий деплой — только папка docs/assets/g6/app, на путь /g6_demo/.
+# Не трогает основной сайт (деплой из mkdocs — deploy.yml, триггер — push в main);
+# этот workflow стоит на отдельной ветке, чтобы не пересобирать и не публиковать
+# остальные (ещё не готовые) страницы моделей вместе с демо.
+
+on:
+  push:
+    branches: [g6-demo-publish]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+          mkdir -p out/g6_demo
+          cp -r docs/assets/g6/app/. out/g6_demo/
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: out
+      - id: deployment
+        uses: actions/deploy-pages@v5
