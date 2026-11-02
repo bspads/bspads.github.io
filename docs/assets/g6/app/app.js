@@ -72,7 +72,14 @@ const materials = {};   // имя материала -> [MeshStandardMaterial]
 let homeView = null;
 
 const t0 = performance.now();
-const gltf = await loader.loadAsync('g6.glb');
+const loadingFill = document.getElementById('loading-fill');
+const loadingPct = document.getElementById('loading-pct');
+const gltf = await loader.loadAsync('g6.glb', (ev) => {
+  if (!ev.total) return; // сервер без Content-Length — доля неизвестна, бар остаётся на месте
+  const pct = Math.min(100, Math.round((ev.loaded / ev.total) * 100));
+  loadingFill.style.width = pct + '%';
+  loadingPct.textContent = pct + '%';
+});
 const loadMs = performance.now() - t0;
 const root = gltf.scene;
 scene.add(root);
@@ -1339,3 +1346,9 @@ G6.modeHighlight = on => {
 // инструкция по Bluetooth-подключению (экран ноутбука, сценарий) — отдельный модуль
 G6.THREE = THREE;
 await import('./tutorial.js');
+
+// автозапуск демо при открытии страницы — показываем сразу, без клика по «▶ Демо»;
+// запускаем здесь (а не сразу после загрузки g6.glb), т.к. демо прячет/двигает ноутбук
+// и кабель — те узлы (laptop, plug и т.д.) появляются позже в этом же модуле, и
+// обращение к ним раньше времени упадёт ReferenceError (временная зона до const).
+setDemo(true);
