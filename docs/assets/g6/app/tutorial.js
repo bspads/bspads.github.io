@@ -657,18 +657,25 @@ onLang(() => {
 
 // Указатель на HOME: стрелка и подпись, привязанные к кнопке на экране (проекция каждый кадр)
 const hintEl = document.createElement('div');
-hintEl.style.cssText = 'position:fixed;display:none;transform:translate(-50%,-100%);pointer-events:none;text-align:center;' +
+hintEl.style.cssText = 'position:fixed;display:none;opacity:1;transition:opacity .3s;transform:translate(-50%,-100%);pointer-events:none;text-align:center;' +
   'font:600 15px "Segoe UI",system-ui,sans-serif;color:#fff;';
 document.body.appendChild(hintEl);
 let hintObj = null, hintLift = 0.008, hintMain = '', hintSub = '';
 function hint(main, sub = '', obj = null, lift = 0.008) {
-  if (!main) { hintEl.style.display = 'none'; return; }
+  if (!main) { hintEl.style.display = 'none'; hintEl.style.opacity = '1'; return; }
   hintObj = obj; hintLift = lift; hintMain = main; hintSub = sub;
   hintEl.innerHTML = `<div style="background:rgba(20,20,22,.88);padding:8px 14px;border-radius:10px;white-space:nowrap">${t(main)}` +
     (sub ? `<div style="font-weight:400;font-size:12.5px;opacity:.85;margin-top:2px">${t(sub)}</div>` : '') +
     '</div><div style="font-size:30px;line-height:30px;color:#1e88ff;text-shadow:0 1px 3px rgba(0,0,0,.4)">▼</div>';
-  hintEl.style.display = 'block';
+  hintEl.style.opacity = '1'; hintEl.style.display = 'block';
 }
+// плавно в прозрачность и скрыть — для перехода из циклического демо-показа в выбранную инструкцию
+// (а не мгновенное исчезновение, как при обычной смене шагов самой инструкции)
+G6.hintFadeOut = () => {
+  if (hintEl.style.display === 'none') return;
+  hintEl.style.opacity = '0';
+  setTimeout(() => hint(null), 300);
+};
 const homeObj = G6.three.nodes.Btn_Home.obj, hp = new THREE.Vector3();
 function placeHint() {
   if (hintEl.style.display === 'none') return;
@@ -697,4 +704,5 @@ let lastDraw = 0;
   if (now - lastDraw > (run ? 33 : 10000)) { draw(); lastDraw = now; }
   requestAnimationFrame(loop);
 })();
+G6.hint = hint;   // указатель-магнит с подписью; используется и демо-показом в app.js, не только здесь
 G6.tutorial = { start, devices: DEVICE, screenSize: [W, H] };   // start('pair' | 'reconnect' | 'receiver' | 'rxreconnect' | 'wired' | 'vibration' | 'turbo' | 'macro', mode?)

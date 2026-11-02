@@ -225,26 +225,9 @@ function readPad() {
   return s;
 }
 
-// Демо — рекламный показ: цикл 16 с; кнопки по очереди, стики описывают круги и «восьмёрки»,
-// триггеры и бамперы, крестовина, лопатки. HOME и T в демо не нажимаются: HOME меняет состояние
-// индикатора (связь, выключение), а T — модификатор турбо и вибрации.
-function demoState(time) {
-  const s = zero(), p = time % 16;
-  const pulse = (a, b) => (p > a && p < b) ? Math.sin(Math.PI * (p - a) / (b - a)) : 0;
-  const env = (a, b) => (p > a && p < b) ? Math.min(1, (p - a) / 0.4, (b - p) / 0.4) : 0;   // плавный вход и выход
-  s.A = pulse(0.0, 0.4); s.B = pulse(0.4, 0.8); s.X = pulse(0.8, 1.2); s.Y = pulse(1.2, 1.6);
-  let e = env(1.8, 5.0);
-  if (e) { const a = (p - 1.8) * Math.PI * 2 / 1.6; s.lx = e * Math.cos(a); s.ly = e * Math.sin(a); s.rx = -e * Math.cos(a); s.ry = e * Math.sin(a); }
-  s.lt = pulse(5.0, 6.0); s.rt = pulse(5.6, 6.6);
-  s.LB = pulse(6.8, 7.2); s.RB = pulse(7.2, 7.6);
-  s.Up = pulse(7.8, 8.2); s.Right = pulse(8.2, 8.6); s.Down = pulse(8.6, 9.0); s.Left = pulse(9.0, 9.4);
-  s.M1 = pulse(10.2, 10.6); s.M2 = pulse(10.7, 11.1);   // во второй половине плана лопаток — камера уже на месте
-  e = env(11.2, 14.4);
-  if (e) { const a = (p - 10.8) * Math.PI * 2 / 1.8; s.lx = 0.85 * e * Math.sin(a); s.ly = 0.6 * e * Math.sin(2 * a);
-    s.rx = -0.85 * e * Math.sin(a); s.ry = 0.6 * e * Math.sin(2 * a); }
-  s.View = pulse(14.5, 14.8); s.Menu = pulse(14.8, 15.1); s.L3 = pulse(15.2, 15.5); s.R3 = pulse(15.5, 15.8);
-  return s;
-}
+// Демо — рекламный показ: см. SHOTS ниже (у каждого плана камеры — свой анимационный приём,
+// включается только пока демо смотрит именно на этот узел — demoInputs()). HOME в демо не нажимается
+// по-настоящему (это запустило бы сопряжение) — только переключает режим/цвет индикатора рядом.
 
 // ---------------- клавиатура ----------------
 const KEYMAP = { Digit1: 'A', Digit2: 'B', Digit3: 'X', Digit4: 'Y', KeyQ: 'LB', KeyE: 'RB', KeyT: 'Up', KeyG: 'Down',
@@ -726,7 +709,7 @@ G6.receiver = on => (on === undefined ? (!rxIn ? 'out' : rxPaired ? 'paired' : '
 let demoSaved = null;
 function setDemo(on) {
   if (on === demo) return;
-  demo = on; demoT = 0; shotIdx = -1;
+  demo = on; demoT = 0; shotIdx = -1; hintShotIdx = -2;
   if (on) {
     // Карты 4096² — заранее и сразу в видеопамять, а одну — на корпус при uDecalMix = 0: первое
     // назначение карты пересобирает шейдер. Замер без этого: смена дракон → чёрный дракон давала кадр
@@ -736,23 +719,38 @@ function setDemo(on) {
     for (const n of DEMO_VARIANTS) if (VARIANTS[n].decal)
       loadDecal(VARIANTS[n].decal).then(tx => { renderer.initTexture(tx); if (!materials.body?.[0].map) setBodyMap(tx); });
     demoSaved = { pos: camera.position.clone(), target: controls.target.clone(), led: led.state, variant: variantName,
-      vis: [laptop, charger, receiver, plug, plugA, cableMesh].map(o => [o, o.visible]) };
+      modeIdx, vis: [laptop, charger, receiver, plug, plugA, cableMesh].map(o => [o, o.visible]) };
     for (const [o] of demoSaved.vis) o.visible = false;
     controls.enabled = false; setLed('on');
   } else if (demoSaved) {
+    G6.hintFadeOut();   // указатель демо-показа плавно в прозрачность, а не резким исчезновением
     for (const [o, v] of demoSaved.vis) o.visible = v;
     camera.clearViewOffset();
     camera.position.copy(demoSaved.pos); controls.target.copy(demoSaved.target); controls.enabled = true;
-    setLed(demoSaved.led); setVariant(demoSaved.variant, 600); demoSaved = null;
+    setLed(demoSaved.led); setVariant(demoSaved.variant, 600);
+    // режим эмуляции мог уехать в сторону на акцентах «переключатель»/HOME — возвращаем, как было
+    modeIdx = demoSaved.modeIdx;
+    document.querySelectorAll('#modes button').forEach((b, k) => b.classList.toggle('on', k === modeIdx));
+    demoSaved = null;
   }
   demoBtn.classList.toggle('on', demo); demoBtn.textContent = t(demo ? '■ Стоп' : '▶ Демо');
 }
-// Планы камеры — по циклу входа (demoState, 16 с): крупно ABXY, проезд над стиками, пока они крутятся,
-// триггеры и бамперы сзади, крупно крестовина, лопатки M1/M2 снизу сзади, общий облёт на «восьмёрках»,
-// крупно HOME. План задан сферическими координатами вокруг своей точки: азимут θ от +Z (сторона игрока)
-// к +X, высота φ над горизонтом, расстояние r, — и внутри плана камера медленно едет (θ0 → θ1). Переход
-// между планами — 0.9 с интерполяцией тех же координат (азимут — по кратчайшей дуге): камера обходит
-// геймпад, а не проходит сквозь корпус, как было бы при линейной интерполяции точек.
+// режим эмуляции напрямую (минуя setMode/onModeChange, который гасит индикатор — на изделии смена
+// режима рвёт связь, в демо это просто витрина цветов) — на акцентах «переключатель» и HOME.
+function demoCycleMode(heldT, period) {
+  const i = Math.floor(heldT / period) % MODE.names.length;
+  if (i === modeIdx) return;
+  modeIdx = i;
+  document.querySelectorAll('#modes button').forEach((b, k) => b.classList.toggle('on', k === i));
+}
+// Планы камеры: крупно ABXY, проезд над стиками, триггеры сзади, крупно крестовина, лопатки M1/M2
+// снизу сзади, переключатель режима, общий облёт со сменой расцветок, кнопка T, крупно HOME. План
+// задан сферическими координатами вокруг своей точки: азимут θ от +Z (сторона игрока) к +X, высота φ
+// над горизонтом, расстояние r. Камера быстро доезжает до плана (SHOT_BLEND_S, азимут — по кратчайшей
+// дуге, камера обходит геймпад, а не проходит сквозь корпус) и дальше держится почти неподвижно
+// (SETTLE_S) — непрерывно едет только общий план (OVERVIEW_IDX), это его собственный приём.
+// У каждого плана — свой анимационный приём (9-й элемент), включается только пока демо смотрит именно
+// на этот узел, heldT — секунды с начала плана (не с начала всего цикла).
 // Общий план: расстояние 0.35…0.41 м — при 0.24 и 0.30 сбоку ближняя рукоять (геймпад 155 мм в ширину)
 // заполняла кадр целиком (скриншоты прогонов). Для каждого плана расстояние ещё и не меньше того, при
 // котором описанная сфера объекта (rs) занимает 85 % свободной части окна: в окне 800 px с панелью
@@ -761,18 +759,55 @@ function setDemo(on) {
 const padR = box.getBoundingSphere(new THREE.Sphere()).radius;
 const wpos = (...names) => names.map(n => nodes[n].obj.getWorldPosition(new THREE.Vector3()))
   .reduce((a, b) => a.add(b)).multiplyScalar(1 / names.length);
-// [начало, конец (с), точка, θ0, θ1, φ, r, rs] — углы в радианах
+// неподвижная точка-якорь на корпусе — для указателя «Различные расцветки» в общем плане: hint()
+// проецирует world-позицию через getWorldPosition(), а center — просто THREE.Vector3, не Object3D.
+const centerAnchor = new THREE.Object3D(); centerAnchor.position.copy(center); scene.add(centerAnchor);
+// якорь на разъёме Type-C — та же точка PORT, что использует вставка кабеля (см. «кабель Type-C» выше)
+const portAnchor = new THREE.Object3D(); portAnchor.position.copy(PORT); scene.add(portAnchor);
+const pulse = (heldT, a, b) => (heldT > a && heldT < b) ? Math.sin(Math.PI * (heldT - a) / (b - a)) : 0;
+// [начало, конец (с), точка, θ0, θ1, φ, r, rs, анимация(heldT) -> частичный ввод | null] — углы в радианах
+const OVERVIEW_IDX = 6;   // индекс общего плана в SHOTS — у него особая лёгкая раскачка радиуса и своя раскраска, см. ниже
 const SHOTS = [
-  [0.0, 1.8, () => wpos('Btn_A', 'Btn_B', 'Btn_X', 'Btn_Y'), 0.25, 0.55, 0.95, 0.13, 0.03],
-  [1.8, 5.0, () => wpos('Stick_L', 'Stick_R').add(new THREE.Vector3(0, 0.008, 0)), -0.55, 0.55, 0.62, 0.17, 0.05],
-  [5.0, 7.7, () => wpos('LT', 'RT', 'LB', 'RB'), Math.PI - 0.45, Math.PI + 0.45, 0.42, 0.2, 0.065],
-  [7.7, 9.5, () => wpos('DPad'), -0.55, -0.25, 1.0, 0.12, 0.025],
+  [0.0, 2.0, () => wpos('Btn_A', 'Btn_B', 'Btn_X', 'Btn_Y'), 0.25, 0.55, 0.95, 0.13, 0.03,
+    h => ({ A: pulse(h, 0.6, 0.95), B: pulse(h, 0.95, 1.3), X: pulse(h, 1.3, 1.65), Y: pulse(h, 1.65, 2.0) })],
+  [2.0, 5.2, () => wpos('Stick_L', 'Stick_R').add(new THREE.Vector3(0, 0.008, 0)), -0.55, 0.55, 0.62, 0.17, 0.05,
+    h => { const e = Math.min(1, h / 0.4), a = h * Math.PI * 2 / 2.6; return { lx: e * Math.cos(a), ly: e * Math.sin(a), rx: -e * Math.cos(a), ry: e * Math.sin(a) }; }],
+  // «Триггеры на датчиках Холла» — тезис именно про LT/RT (бамперы LB/RB рядом в кадре, но не на датчиках Холла — не анимируем)
+  [5.2, 7.4, () => wpos('LT', 'RT', 'LB', 'RB'), Math.PI - 0.45, Math.PI + 0.45, 0.42, 0.2, 0.065,
+    h => ({ lt: pulse(h, 0.6, 1.4), rt: pulse(h, 1.4, 2.2) })],
+  [7.4, 9.6, () => wpos('DPad'), -0.55, -0.25, 1.0, 0.12, 0.025,
+    h => ({ Up: pulse(h, 0.5, 0.8), Right: pulse(h, 0.8, 1.1), Down: pulse(h, 1.1, 1.4), Left: pulse(h, 1.4, 1.7) })],
   // лопатки — круто снизу: при φ −0.32 сзади кадр закрывали ближняя рукоять и триггер (скриншот прогона)
-  [9.5, 11.2, () => wpos('M1', 'M2'), Math.PI - 0.35, Math.PI + 0.05, -0.7, 0.2, 0.06],
-  [11.2, 14.4, () => center.clone(), Math.PI * 0.15, Math.PI * 0.85, 0.36, 0.38, padR],
-  [14.4, 16.0, () => wpos('Btn_Home'), -0.15, 0.15, 0.9, 0.13, 0.03],
+  [9.6, 11.6, () => wpos('M1', 'M2'), Math.PI - 0.35, Math.PI + 0.05, -0.7, 0.2, 0.06,
+    h => ({ M1: pulse(h, 0.5, 0.9), M2: pulse(h, 0.9, 1.3) })],
+  [11.6, 14.6, () => wpos('Mode'), Math.PI - 0.2, Math.PI + 0.2, -0.55, 0.14, 0.025,
+    h => { demoCycleMode(h, 0.6); return null; }],
+  // геймпад лицом к камере (не «лёжа» боком/сзади): азимут π — проверено вручную (aim+force-render),
+  // при азимуте 0 на такой высоте видна задняя/нижняя сторона (триггеры, лопатки), а не лицевая панель
+  [14.6, 22.6, () => center.clone(), Math.PI - 0.3, Math.PI + 0.3, 0.28, 0.38, padR, null],
+  [22.6, 24.6, () => wpos('Btn_Share'), -0.05, 0.25, 0.92, 0.13, 0.025,
+    h => ({ Share: (h > 0.5 && h < 1.6) ? 1 : 0 })],
+  [24.6, 27.6, () => wpos('Btn_Home'), -0.15, 0.15, 0.9, 0.13, 0.03,
+    h => { demoCycleMode(h, 0.55); return null; }],   // HOME не нажимается — только цвет индикатора по режиму
+  // разъём Type-C: та же точка, что и у вставки кабеля (PORT, см. «кабель Type-C» ниже по файлу)
+  [27.6, 29.6, () => portAnchor.position.clone(), Math.PI - 0.1, Math.PI + 0.1, -0.15, 0.09, 0.025, null],
 ];
-const SHOT_BLEND_S = 0.9;
+const DEMO_CYCLE_S = SHOTS[SHOTS.length - 1][1];
+// Указатели-магниты + подписи по тем же планам (индекс в точности как в SHOTS) — продающие тезисы
+// поверх демо-показа; null — план без подписи. [текст, подзаголовок, геттер узла, подъём указателя]
+const HINTS = [
+  ['Точные нажатия', '', () => nodes.Btn_A.obj, 0.007],
+  ['Стики на датчиках Холла', '', () => nodes.Stick_L.obj, 0.024],
+  ['Триггеры на датчиках Холла', '', () => nodes.RT.obj, 0.01],
+  ['Оптимальная крестовина', '', () => nodes.DPad.obj, 0.009],
+  ['Программируемые кнопки', '', () => nodes.M1.obj, -0.005],
+  ['Переключение режимов эмуляции', '', () => nodes.Mode.obj, 0.006],
+  ['Различные расцветки', '', () => centerAnchor, 0.05],
+  ['Режим Турбо и вибрации', '', () => nodes.Btn_Share.obj, 0.007],
+  ['Индикация состояния', '', () => nodes.Btn_Home.obj, 0.008],
+  ['Type-C для зарядки и подключения к ПК/PS4', '', () => portAnchor, 0.006],
+];
+const SHOT_BLEND_S = 0.5, SETTLE_S = 0.6;   // быстро доезжаем, дальше держимся на месте (кроме общего плана — он едет всё время)
 let shotIdx = -1, shotFrom = null;
 const camSph = () => {                       // текущая камера в тех же координатах
   const tg = controls.target.clone(), d = camera.position.clone().sub(tg), r = d.length();
@@ -784,11 +819,14 @@ function demoCamera(time) {
   const shift = pr < w * 0.6 ? pr / 2 : 0;          // на узком экране панель почти во всю ширину — не сдвигаем
   const tanV = Math.tan(camera.fov * Math.PI / 360), tanH = tanV * w / h, free = (w - 2 * shift) / w;
   const fit = rs => rs / (0.85 * Math.min(tanV, tanH * free));
-  const p = time % 16, i = SHOTS.findIndex(sh => p >= sh[0] && p < sh[1]);
+  const p = time % DEMO_CYCLE_S, i = SHOTS.findIndex(sh => p >= sh[0] && p < sh[1]);
   if (i !== shotIdx) { shotIdx = i; shotFrom = { ...camSph(), at: time }; }   // начало плана — от текущей камеры
   const [t0, t1, at, th0, th1, ph, r0, rs] = SHOTS[i];
-  const u = (p - t0) / (t1 - t0), ue = u * u * (3 - 2 * u);
-  const goal = { tg: at(), th: th0 + (th1 - th0) * ue, ph, r: Math.max(fit(rs), i === 5 ? r0 + 0.03 * Math.sin(time * 0.9) : r0) };
+  const heldT = p - t0;
+  // общий план едет весь свой хронометраж, остальные — быстро устаканиваются за SETTLE_S и дальше стоят
+  const u = i === OVERVIEW_IDX ? heldT / (t1 - t0) : Math.min(1, heldT / SETTLE_S);
+  const ue = u * u * (3 - 2 * u);
+  const goal = { tg: at(), th: th0 + (th1 - th0) * ue, ph, r: Math.max(fit(rs), i === OVERVIEW_IDX ? r0 + 0.03 * Math.sin(time * 0.9) : r0) };
   const b = Math.min(1, (time - shotFrom.at) / SHOT_BLEND_S), k = b * b * (3 - 2 * b);
   let dth = goal.th - shotFrom.th; dth -= Math.round(dth / (2 * Math.PI)) * 2 * Math.PI;   // кратчайшая дуга
   const tg = shotFrom.tg.clone().lerp(goal.tg, k), th = shotFrom.th + dth * k, phi = shotFrom.ph + (goal.ph - shotFrom.ph) * k;
@@ -797,14 +835,34 @@ function demoCamera(time) {
   controls.target.copy(tg);
   camera.setViewOffset(w, h, -shift, 0, w, h);
 }
-// расцветки в демо: каждые 8 с — следующая, переход 1.6 с; после остановки — та, что была до демо
-const DEMO_VARIANTS = ['black', 'gray', 'white', 'dragon', 'dragon_black'], VARIANT_EVERY_S = 8, VARIANT_FADE_MS = 1600;
+// Подпись-указатель меняется вместе с планом камеры (demoCamera уже обновил shotIdx в этом кадре).
+let hintShotIdx = -2;
+function demoHint() {
+  if (shotIdx === hintShotIdx) return;
+  hintShotIdx = shotIdx;
+  const hdef = HINTS[shotIdx];
+  if (!hdef) { G6.hint(null); return; }
+  const [main, sub, at, lift] = hdef;
+  G6.hint(main, sub, at(), lift);
+}
+// Ввод (нажатия/стики) — только от приёма текущего плана, см. 9-й элемент SHOTS; вне своего плана
+// элемент не анимируется вовсе (а не «по общему независимому расписанию», как было раньше).
+function demoInputs() {
+  const shot = SHOTS[shotIdx];
+  if (!shot || !shot[8]) return zero();
+  return { ...zero(), ...(shot[8](demoT % DEMO_CYCLE_S - shot[0]) ?? {}) };
+}
+// расцветки — только на общем плане (OVERVIEW_IDX), по кругу на весь его хронометраж; первый отрезок —
+// расцветка, выбранная до демо (чтобы начать со «своего», а не дёргать цвет сразу на старте показа)
+const DEMO_VARIANTS = ['black', 'gray', 'white', 'dragon', 'dragon_black'], VARIANT_FADE_MS = 900;
 let demoVarIdx = -1;
 function demoVariants(time) {
-  const i = Math.floor(time / VARIANT_EVERY_S);
+  const shot = SHOTS[OVERVIEW_IDX], everyS = (shot[1] - shot[0]) / DEMO_VARIANTS.length;
+  if (shotIdx !== OVERVIEW_IDX) { demoVarIdx = -1; return; }   // вне общего плана — ждём, расцветку не трогаем
+  const i = Math.floor((time % DEMO_CYCLE_S - shot[0]) / everyS);
   if (i === demoVarIdx) return;
   demoVarIdx = i;
-  if (i === 0) return;                                  // первые 8 с — расцветка, выбранная до демо
+  if (i === 0) return;                                  // первый отрезок общего плана — расцветка до демо
   const k = (DEMO_VARIANTS.indexOf(demoSaved.variant) + i) % DEMO_VARIANTS.length;
   setVariant(DEMO_VARIANTS[k], VARIANT_FADE_MS);
 }
@@ -827,9 +885,9 @@ renderer.setAnimationLoop(() => {
   const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
   fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; }
   const pad = readPad();
-  if (demo) { demoT += dt; demoCamera(demoT); demoVariants(demoT); }
+  if (demo) { demoT += dt; demoCamera(demoT); demoVariants(demoT); demoHint(); }
   updateVariantFade(now);
-  const d = demo ? demoState(demoT) : null;
+  const d = demo ? demoInputs() : null;
   const k = 1 - Math.exp(-dt * 30);              // ~33 мс до 63 % — быстро, но без рывка
   let homeRaw = 0;
   for (const key of Object.keys(cur)) {
